@@ -20,30 +20,25 @@ logger = logging.getLogger()
 # MySQL configuration
 mysql_config = {
     'user': 'root',
-    'password': 'EasyMove2024',
+    'password': 'xxxxxxx', # Here give your password
     'host': 'localhost',
-    'database': 'TrustPilot'
+    'database': 'TrustPilot' # You must have schema or database named TrusPilot
 }
 
 # Path to your webdriver executable
 webdriver_path = '/Users/sabbirahmad/Desktop/chromedriver'
 
-# Get the CSV file path from the command-line arguments
 if len(sys.argv) < 2:
     logger.error("CSV file path not provided.")
     sys.exit(1)
 csv_input_file_path = sys.argv[1]
 
-# Extract the table name from the CSV file name
 table_name = os.path.splitext(os.path.basename(csv_input_file_path))[0]
 
-# Initialize Chrome web driver
 chrome_options = Options()
-# chrome_options.add_argument("--headless")  # Uncomment to run Chrome in headless mode
 service = Service(webdriver_path)
 driver = webdriver.Chrome(service=service, options=chrome_options)
 
-# Open the input CSV file and read links
 with open(csv_input_file_path, mode='r') as file:
     csv_reader = csv.reader(file)
     next(csv_reader)  # Skip header row
