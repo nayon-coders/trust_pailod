@@ -38,17 +38,7 @@ This script extracts reviews from TrustPilot and saves them into a MySQL databas
 
 3. **CSV File Path**: When running the script, provide the path to your CSV file as a command-line argument.
 
-### Step 2: Prepare Your CSV File
-
-Create a CSV file containing the URLs to be scraped. The first row should contain the headers, and the subsequent rows should contain the company names and URLs. For example:
-
-```csv
-CompanyName,CompanyURL
-Company A,https://www.trustpilot.com/review/company-a
-Company B,https://www.trustpilot.com/review/company-b
-```
-
-### Step 3: Running the Script
+### Step 2: Running the Script
 
 To run this you can click the run button of visual studio code or pycharme.
 
