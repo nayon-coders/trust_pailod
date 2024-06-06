@@ -75,4 +75,3 @@ For any issues or questions, please contact [Sabbir Ahmad] at [sabbirahmad653@gm
 Thank you for using TrustPilot Review Scraper!
 ```
 
-Feel free to customize this README file further to match your specific needs or preferences.
