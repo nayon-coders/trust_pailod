@@ -20,25 +20,30 @@ logger = logging.getLogger()
 # MySQL configuration
 mysql_config = {
     'user': 'root',
-    'password': 'xxxxxxx', # Here give your password
+    'password': 'EasyMove2024',
     'host': 'localhost',
-    'database': 'TrustPilot' # You must have schema or database named TrusPilot
+    'database': 'Scrapping'
 }
 
 # Path to your webdriver executable
 webdriver_path = '/Users/sabbirahmad/Desktop/chromedriver'
 
-if len(sys.argv) < 2:
+# Get the CSV file path from the command-line arguments
+if len(sys.argv) < 4:
     logger.error("CSV file path not provided.")
     sys.exit(1)
 csv_input_file_path = sys.argv[1]
+source = sys.argv[2]
+category = sys.argv[3]
 
-table_name = os.path.splitext(os.path.basename(csv_input_file_path))[0]
-
+# Extract the table name from the CSV file name
+table_name = "Scrapped_Data"
+# Initialize Chrome web driver
 chrome_options = Options()
 service = Service(webdriver_path)
 driver = webdriver.Chrome(service=service, options=chrome_options)
 
+# Open the input CSV file and read links
 with open(csv_input_file_path, mode='r') as file:
     csv_reader = csv.reader(file)
     next(csv_reader)  # Skip header row
@@ -58,7 +63,10 @@ def create_table(cursor, table_name):
         review_date VARCHAR(50),
         review_star VARCHAR(50),
         review_description TEXT,
-        avg_rating VARCHAR(50)
+        phone_num VARCHAR(50),
+        avg_rating VARCHAR(50),
+        Source_Website VARCHAR(255),
+        Company_category VARCHAR(100)
     );
     """
     try:
@@ -79,8 +87,8 @@ def review_exists(cursor, table_name, reviewer_name, review_date):
 # Function to insert review data into the MySQL table
 def insert_review_data(cursor, table_name, data):
     insert_query = f"""
-    INSERT INTO `{table_name}` (Company_name, Company_link, reviewer_name, review_date, review_star, review_description, avg_rating)
-    VALUES (%s, %s, %s, %s, %s, %s, %s);
+    INSERT INTO `{table_name}` (Company_name, Company_link, reviewer_name, review_date, review_star, review_description, phone_num, avg_rating, Source_Website, Company_category)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
     """
     try:
         cursor.execute(insert_query, data)
@@ -111,7 +119,7 @@ def is_all_reviews(driver):
         return False
 
 # Function to extract review information from the current page
-def extract_reviews(driver, company_name, company_link, avg_rating, cursor, table_name):
+def extract_reviews(driver, company_name, company_link, phone_num, avg_rating, source, category, cursor, table_name):
     reviews_data = []
     try:
         time.sleep(5)
@@ -153,7 +161,7 @@ def extract_reviews(driver, company_name, company_link, avg_rating, cursor, tabl
                 logging.info("Review Description Not Found")
                 # logger.error(f"Review description not found: {e}")
 
-            reviews_data.append((company_name, company_link, reviewer_name, review_date, review_star, review_description, avg_rating))
+            reviews_data.append((company_name, company_link, reviewer_name, review_date, review_star, review_description, phone_num, avg_rating, source, category))
         logger.info(f"Extracted {len(reviews_data)} reviews.")
 
         if len(reviews_data) == 0:
@@ -161,16 +169,16 @@ def extract_reviews(driver, company_name, company_link, avg_rating, cursor, tabl
             review_date = "N/A"
             review_star = "N/A"
             review_description = "N/A"
-            reviews_data.append((company_name, company_link, reviewer_name, review_date, review_star, review_description, avg_rating))
+            reviews_data.append((company_name, company_link, reviewer_name, review_date, review_star, review_description, phone_num, avg_rating, source, category))
     except Exception as e:
         logger.error(f"Error finding review elements: {e}")
     return reviews_data
 
 # Function to handle pagination
-def handle_pagination(driver, company_name, company_link, avg_rating, cursor, table_name):
+def handle_pagination(driver, company_name, company_link, phone_num, avg_rating, source, category, cursor, table_name):
     all_reviews = []
     while True:
-        reviews = extract_reviews(driver, company_name, company_link, avg_rating, cursor, table_name)
+        reviews = extract_reviews(driver, company_name, company_link, phone_num, avg_rating, source, category, cursor, table_name)
         all_reviews.extend(reviews)
         # Scroll down twice to load more reviews
         driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.PAGE_DOWN)
@@ -222,6 +230,8 @@ try:
             # Wait for the reviews to load
             wait.until(EC.presence_of_element_located((By.XPATH, '//section[@class="styles_reviewsContainer__3_GQw"]')))
             logger.info("Reviews section loaded.")
+
+            phone_num = "N/A"
             
             # Extract the average rating
             avg_rating = "N/A"
@@ -242,7 +252,7 @@ try:
             time.sleep(6)
 
             # Handle pagination and extract review data
-            reviews = handle_pagination(driver, name, link, avg_rating, cursor, table_name)
+            reviews = handle_pagination(driver, name, link, phone_num, avg_rating, source, category, cursor, table_name)
             
             # Insert review data into MySQL
             for review in reviews:
