@@ -42,6 +42,9 @@ This script extracts reviews from TrustPilot and saves them into a MySQL databas
 
 To run this you can click the run button of visual studio code or pycharme.
 
+or if you used app.py to use the api endpoint hit this url into your browser,
+**http://localhost:5000/scrape?category=Bank&location=Berlin**
+
 ## Logging
 
 The script will log its progress and any errors encountered. This information can be helpful for debugging if something goes wrong.
