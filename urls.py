@@ -24,9 +24,10 @@ def generate_trustpilot_url(category, location):
     return f"{base_url}{category_formatted}?country={country_code}&location={location_formatted}"
 
 # Set the search category and location
-category = 'Software_company'
+category = 'Bank'
 location = 'Berlin'
 source = 'https://www.trustpilot.com'
+source_name = "Trustpilot"
 
 # Generate the URL dynamically
 url = generate_trustpilot_url(category, location)
@@ -145,7 +146,7 @@ def main(driver):
 
     # Call details.py with the CSV file path
     try:
-        subprocess.run([python_executable, '/Users/sabbirahmad/TrustPilot/details.py', csv_file_path, source, category], check=True)
+        subprocess.run([python_executable, '/Users/sabbirahmad/TrustPilot/details.py', csv_file_path, source_name, source, category], check=True)
         print(f"details.py executed successfully with {csv_file_path}")
     except subprocess.CalledProcessError as e:
         print(f"Error calling details.py: {e}")
