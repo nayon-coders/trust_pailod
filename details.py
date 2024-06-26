@@ -17,26 +17,17 @@ from mysql.connector import errorcode
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger()
 
-# MySQL configuration for the client's server
-# mysql_config = {
-#     'user': 'avnadmin',
-#     'password': 'xxxxxxxxxxx',
-#     'host': 'mysql-fc6f7e8-sabbirahmad653-da13.j.aivencloud.com',  # Note: This should be the MySQL server host, not FTP
-#     'port':23157,
-#     'database': 'defaultdb'
-# }
-
 mysql_config = {
-    'user': 'root',
-    'password': 'EasyMove2024',
-    'host': 'localhost',
-    'database': 'Scrapping'
+    'user': 'u323738017_scrapy_user',
+    'password': 'Scrapy@0001',
+    'host': 'srv1267.hstgr.io',
+    'database': 'u323738017_scrapy',
+    'connect_timeout': 60,
+    'connection_timeout': 60
 }
 
-# Path to your webdriver executable
 webdriver_path = '/Users/sabbirahmad/Desktop/chromedriver'
 
-# Get the CSV file path from the command-line arguments
 if len(sys.argv) < 5:
     logger.error("CSV file path not provided.")
     sys.exit(1)
@@ -45,23 +36,18 @@ source = sys.argv[3]
 category = sys.argv[4]
 source_name = sys.argv[2]
 
-# Extract the table name from the CSV file name
 table_name = "Scrapped_Data"
-# Initialize Chrome web driver
 chrome_options = Options()
 service = Service(webdriver_path)
 driver = webdriver.Chrome(service=service, options=chrome_options)
 
-# Open the input CSV file and read links
 with open(csv_input_file_path, mode='r') as file:
     csv_reader = csv.reader(file)
-    next(csv_reader)  # Skip header row
+    next(csv_reader)  
     links = list(csv_reader)
 
-# Initialize WebDriverWait
 wait = WebDriverWait(driver, 20)
 
-# Function to create a table if it doesn't exist
 def create_table(cursor, table_name):
     create_table_query = f"""
     CREATE TABLE IF NOT EXISTS `{table_name}` (
@@ -85,16 +71,25 @@ def create_table(cursor, table_name):
     except mysql.connector.Error as err:
         logger.error(f"Error creating table: {err}")
 
-# Function to check if a review already exists in the MySQL table
 def review_exists(cursor, table_name, reviewer_name, review_date):
     query = f"""
     SELECT COUNT(*) FROM `{table_name}` WHERE reviewer_name = %s AND review_date = %s;
     """
-    cursor.execute(query, (reviewer_name, review_date))
-    result = cursor.fetchone()
-    return result[0] > 0
+    try:
+        cursor.execute(query, (reviewer_name, review_date))
+        result = cursor.fetchone()
+        return result[0] > 0
+    except mysql.connector.Error as err:
+        if err.errno in [errorcode.CR_SERVER_LOST, errorcode.CR_SERVER_GONE_ERROR]:
+            logger.error(f"Lost connection to MySQL server. Attempting to reconnect: {err}")
+            reconnect_mysql(connection, cursor)
+            cursor.execute(query, (reviewer_name, review_date))
+            result = cursor.fetchone()
+            return result[0] > 0
+        else:
+            logger.error(f"Error checking review existence: {err}")
+            return False
 
-# Function to insert review data into the MySQL table
 def insert_review_data(cursor, table_name, data):
     insert_query = f"""
     INSERT INTO `{table_name}` (Company_name, Company_link, reviewer_name, review_date, review_star, review_description, phone_num, avg_rating,Source_Name, Source_Website, Company_category)
@@ -103,9 +98,21 @@ def insert_review_data(cursor, table_name, data):
     try:
         cursor.execute(insert_query, data)
     except mysql.connector.Error as err:
-        logger.error(f"Error inserting data: {err}")
+        if err.errno in [errorcode.CR_SERVER_LOST, errorcode.CR_SERVER_GONE_ERROR]:
+            logger.error(f"Lost connection to MySQL server. Attempting to reconnect: {err}")
+            reconnect_mysql(connection, cursor)
+            cursor.execute(insert_query, data)
+        else:
+            logger.error(f"Error inserting data: {err}")
 
-# Function to check if pagination element is present and visible
+def reconnect_mysql(connection, cursor):
+    try:
+        connection.ping(reconnect=True, attempts=3, delay=5)
+        logger.info("Reconnected to MySQL server.")
+    except mysql.connector.Error as err:
+        logger.error(f"Failed to reconnect to MySQL server: {err}")
+        sys.exit(1)
+
 def is_pagination_visible(driver):
     try:
         pagination = driver.find_element(By.XPATH, '//div[@class="styles_pagination__6VmQv"]/nav[@aria-label="Pagination"]/a[@name="pagination-button-next"]')
@@ -113,7 +120,6 @@ def is_pagination_visible(driver):
     except:
         return False
 
-# Function to check if pagination button is interactable
 def is_pagination_button_interactable(driver):
     try:
         pagination_button = driver.find_element(By.XPATH, '//div[@class="styles_pagination__6VmQv"]/nav[@aria-label="Pagination"]/a[@name="pagination-button-next"]')
@@ -128,7 +134,6 @@ def is_all_reviews(driver):
     except:
         return False
 
-# Function to extract review information from the current page
 def extract_reviews(driver, company_name, company_link, phone_num, avg_rating, Source_Name, source, category, cursor, table_name):
     reviews_data = []
     try:
@@ -149,7 +154,6 @@ def extract_reviews(driver, company_name, company_link, phone_num, avg_rating, S
                 review_date = "N/A"
                 logger.error(f"Review date not found: {e}")
 
-            # Skip review if it already exists in the database
             if review_exists(cursor, table_name, reviewer_name, review_date):
                 logger.info(f"Review by {reviewer_name} on {review_date} already exists. Skipping.")
                 continue
@@ -169,7 +173,6 @@ def extract_reviews(driver, company_name, company_link, phone_num, avg_rating, S
             except Exception as e:
                 review_description = "N/A"
                 logging.info("Review Description Not Found")
-                # logger.error(f"Review description not found: {e}")
 
             reviews_data.append((company_name, company_link, reviewer_name, review_date, review_star, review_description, phone_num, avg_rating,Source_Name, source, category))
         logger.info(f"Extracted {len(reviews_data)} reviews.")
@@ -184,27 +187,23 @@ def extract_reviews(driver, company_name, company_link, phone_num, avg_rating, S
         logger.error(f"Error finding review elements: {e}")
     return reviews_data
 
-# Function to handle pagination
 def handle_pagination(driver, company_name, company_link, phone_num, avg_rating,Source_Name, source, category, cursor, table_name):
     all_reviews = []
     while True:
         reviews = extract_reviews(driver, company_name, company_link, phone_num, avg_rating,Source_Name, source, category, cursor, table_name)
         all_reviews.extend(reviews)
-        # Scroll down twice to load more reviews
         driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.PAGE_DOWN)
-        time.sleep(6)
+        time.sleep(4)
         driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.PAGE_DOWN)
-        time.sleep(6)
+        time.sleep(3)
 
         try:
             if is_pagination_visible(driver) and is_pagination_button_interactable(driver):
                 print("Pagination button found and interactable. Clicking it.")
                 try:
-                    # Wait for the pagination button to be clickable
                     pagination_button = wait.until(EC.element_to_be_clickable((By.XPATH, '//a[@name="pagination-button-next"]')))
                     pagination_button.click()
-                    # Wait for the next page to load
-                    time.sleep(10)
+                    time.sleep(7)
                 except:
                     break
             else:
@@ -219,7 +218,6 @@ def handle_pagination(driver, company_name, company_link, phone_num, avg_rating,
             break
     return all_reviews
 
-# Connect to MySQL
 connection = None
 cursor = None
 
@@ -228,22 +226,18 @@ try:
     cursor = connection.cursor()
     logger.info("Connected to MySQL database.")
 
-    # Create the table
     create_table(cursor, table_name)
 
-    # Iterate over links and extract review data
     for name, link in links:
         logger.info(f"Opening link for: {name}")
 
         driver.get(link)
         try:
-            # Wait for the reviews to load
             wait.until(EC.presence_of_element_located((By.XPATH, '//section[@class="styles_reviewsContainer__3_GQw"]')))
             logger.info("Reviews section loaded.")
 
             phone_num = "N/A"
             
-            # Extract the average rating
             avg_rating = "N/A"
             try:
                 avg_rating_element = driver.find_element(By.XPATH, '//span[@class = "typography_heading-m__T_L_X typography_appearance-default__AAY17"]')
@@ -255,20 +249,16 @@ try:
                 else:
                     logger.error(f"Average rating not found: {e}")
 
-            # Scroll down twice to load more reviews
             driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.PAGE_DOWN)
-            time.sleep(6)
+            time.sleep(3)
             driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.PAGE_DOWN)
-            time.sleep(6)
+            time.sleep(3)
 
-            # Handle pagination and extract review data
             reviews = handle_pagination(driver, name, link, phone_num, avg_rating,source_name, source, category, cursor, table_name)
             
-            # Insert review data into MySQL
             for review in reviews:
                 insert_review_data(cursor, table_name, review)
             
-            # Commit the transaction after each company
             connection.commit()
 
         except Exception as e:
