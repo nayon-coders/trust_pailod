@@ -17,6 +17,7 @@ from mysql.connector import errorcode
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger()
 
+
 mysql_config = {
     'user': 'u323738017_scrapy_user',
     'password': 'Scrapy@0001',
@@ -26,7 +27,7 @@ mysql_config = {
     'connection_timeout': 60
 }
 
-webdriver_path = '/Users/sabbirahmad/Desktop/chromedriver'
+webdriver_path = '/Users/apple/developments/chromedriver-mac-x64/chromedriver'
 
 if len(sys.argv) < 5:
     logger.error("CSV file path not provided.")
